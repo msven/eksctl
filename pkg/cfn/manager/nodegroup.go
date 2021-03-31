@@ -212,22 +212,22 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 		return nil
 	}
 
-	if ng.MinSize == nil && int64(*ng.DesiredCapacity) < currentMinSize.Int() {
+	if ng.MinSize == nil && ng.DesiredCapacity != nil && int64(*ng.DesiredCapacity) < currentMinSize.Int() {
 		logger.Warning("the desired nodes %d is less than current nodes-min/minSize %d", *ng.DesiredCapacity, currentMinSize.Int())
 		return errors.Errorf("the desired nodes %d is less than current nodes-min/minSize %d", *ng.DesiredCapacity, currentMinSize.Int())
 	}
 
-	if ng.MaxSize == nil && int64(*ng.DesiredCapacity) > currentMaxSize.Int() {
+	if ng.MaxSize == nil && ng.DesiredCapacity != nil && int64(*ng.DesiredCapacity) > currentMaxSize.Int() {
 		logger.Warning("the desired nodes %d is greater than current nodes-max/maxSize %d", *ng.DesiredCapacity, currentMaxSize.Int())
 		return errors.Errorf("the desired nodes %d is greater than current nodes-max/maxSize %d", *ng.DesiredCapacity, currentMaxSize.Int())
 	}
 
-	if ng.DesiredCapacity == nil && int64(*ng.MaxSize) < currentCapacity.Int() {
+	if ng.DesiredCapacity == nil && ng.MaxSize != nil && int64(*ng.MaxSize) < currentCapacity.Int() {
 		logger.Warning("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentCapacity.Int(), *ng.MaxSize)
 		return errors.Errorf("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentCapacity.Int(), *ng.MaxSize)
 	}
 
-	if ng.DesiredCapacity == nil && int64(*ng.MinSize) > currentCapacity.Int() {
+	if ng.DesiredCapacity == nil && ng.MinSize != nil && int64(*ng.MinSize) > currentCapacity.Int() {
 		logger.Warning("the current capacity of %d is less than desired nodes-min/minSize %d", currentCapacity.Int(), *ng.MinSize)
 		return errors.Errorf("the current capacity of %d is less than desired nodes-min/minSize %d", currentCapacity.Int(), *ng.MinSize)
 	}
