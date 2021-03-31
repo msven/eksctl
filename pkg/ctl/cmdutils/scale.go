@@ -75,9 +75,6 @@ func validateNumberOfNodes(ng *api.NodeGroup) error {
 		ng.ScalingConfig = &api.ScalingConfig{}
 	}
 
-	// TODO: Verify if desired count not provided, that we still validate
-	// that node count within range
-
 	if ng.DesiredCapacity != nil && *ng.DesiredCapacity < 0 {
 		return fmt.Errorf("number of nodes must be 0 or greater")
 	}

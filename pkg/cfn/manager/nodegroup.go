@@ -222,6 +222,16 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 		return errors.Errorf("the desired nodes %d is greater than current nodes-max/maxSize %d", *ng.DesiredCapacity, currentMaxSize.Int())
 	}
 
+	if ng.DesiredCapacity == nil && int64(*ng.MaxSize) < currentCapacity.Int() {
+		logger.Warning("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentCapacity.Int(), *ng.MaxSize)
+		return errors.Errorf("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentCapacity.Int(), *ng.MaxSize)
+	}
+
+	if ng.DesiredCapacity == nil && int64(*ng.MinSize) > currentCapacity.Int() {
+		logger.Warning("the current capacity of %d is less than desired nodes-min/minSize %d", currentCapacity.Int(), *ng.MinSize)
+		return errors.Errorf("the current capacity of %d is less than desired nodes-min/minSize %d", currentCapacity.Int(), *ng.MinSize)
+	}
+
 	// Set the new values
 	updateField := func(path, fieldName string, newVal *int, oldVal gjson.Result) error {
 		if !hasChanged(newVal, oldVal) {

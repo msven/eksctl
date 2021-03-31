@@ -33,7 +33,7 @@ func scaleNodeGroupWithRunFunc(cmd *cmdutils.Cmd, runFunc func(cmd *cmdutils.Cmd
 		fs.StringVarP(&ng.Name, "name", "n", "", "Name of the nodegroup to scale")
 		cmdutils.AddConfigFileFlag(fs, &cmd.ClusterConfigFile)
 
-		desiredCapacity := fs.IntP("nodes", "N", -1, "desired number of nodes (required)")
+		desiredCapacity := fs.IntP("nodes", "N", -1, "desired number of nodes")
 		maxCapacity := fs.IntP("nodes-max", "M", -1, "maximum number of nodes")
 		minCapacity := fs.IntP("nodes-min", "m", -1, "minimum number of nodes")
 
