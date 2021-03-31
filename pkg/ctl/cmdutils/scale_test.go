@@ -55,8 +55,7 @@ var _ = Describe("scale node group config file loader", func() {
 			error: fmt.Errorf("node group 123123 not found"),
 		}),
 		Entry("with no desired capacity", scaleNodeGroupCase{
-			name:  "ng-no-desired-capacity",
-			error: fmt.Errorf("number of nodes must be 0 or greater"),
+			name: "ng-no-desired-capacity",
 		}),
 		Entry("with no minSize and no maxSize", scaleNodeGroupCase{
 			name: "ng-no-min-max",

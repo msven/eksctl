@@ -61,10 +61,6 @@ var _ = Describe("scale", func() {
 				args:  []string{"nodegroup", "ng", "--cluster", "dummy", "--name", "ng"},
 				error: fmt.Errorf("Error: --name=ng and argument ng cannot be used at the same time"),
 			}),
-			Entry("missing required nodes flag --nodes", invalidParamsCase{
-				args:  []string{"nodegroup", "ng", "--cluster", "dummy"},
-				error: fmt.Errorf("Error: number of nodes must be 0 or greater"),
-			}),
 			Entry("invalid flag", invalidParamsCase{
 				args:  []string{"nodegroup", "--invalid", "dummy"},
 				error: fmt.Errorf("Error: unknown flag: --invalid"),
@@ -73,7 +69,6 @@ var _ = Describe("scale", func() {
 				args:  []string{"nodegroup", "ng", "--cluster", "dummy", "--nodes", "2", "--nodes-min", "3"},
 				error: fmt.Errorf("Error: minimum number of nodes must be less than or equal to number of nodes"),
 			}),
-
 			Entry("desired node greater than max nodes", invalidParamsCase{
 				args:  []string{"nodegroup", "ng", "--cluster", "dummy", "--nodes", "2", "--nodes-max", "1"},
 				error: fmt.Errorf("Error: maximum number of nodes must be greater than or equal to number of nodes"),
@@ -81,6 +76,10 @@ var _ = Describe("scale", func() {
 			Entry("desired node less than min nodes", invalidParamsCase{
 				args:  []string{"nodegroup", "ng", "--cluster", "dummy", "--nodes", "2", "--nodes-min", "3"},
 				error: fmt.Errorf("Error: minimum number of nodes must be less than or equal to number of nodes"),
+			}),
+			Entry("max nodes less than min nodes", invalidParamsCase{
+				args:  []string{"nodegroup", "ng", "--cluster", "dummy", "--nodes-max", "2", "--nodes-min", "3"},
+				error: fmt.Errorf("Error: minimum number of nodes must be less than maximum number"),
 			}),
 			Entry("desired node outside the range [min, max]", invalidParamsCase{
 				args:  []string{"nodegroup", "ng", "--cluster", "dummy", "--nodes", "2", "--nodes-min", "1", "--nodes-max", "1"},
