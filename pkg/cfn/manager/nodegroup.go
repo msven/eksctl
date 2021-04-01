@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/autoscaling/autoscaling"
 	cfn "github.com/aws/aws-sdk-go/service/cloudformation"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/blang/semver"
@@ -35,6 +37,7 @@ type NodeGroupSummary struct {
 	MaxSize              int
 	MinSize              int
 	DesiredCapacity      int
+	ActualCapacity       int
 	InstanceType         string
 	ImageID              string
 	CreationTime         *time.Time
@@ -162,7 +165,7 @@ func (c *StackCollection) DescribeNodeGroupStacksAndResources() (map[string]Stac
 }
 
 // ScaleNodeGroup will scale an existing nodegroup
-func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
+func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup, asg *eks.Nodegroup, asgApi *autoscaling.AutoScalingAPI) error {
 	clusterName := c.MakeClusterStackName()
 	c.spec.Status = &api.ClusterStatus{StackName: clusterName}
 	name := c.makeNodeGroupStackName(ng.Name)
@@ -171,6 +174,7 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 	if err != nil {
 		return errors.Wrapf(err, "error describing nodegroup stack %s", name)
 	}
+	asgName, err := c.GetAutoScalingGroupName(stack)
 
 	// Get current stack
 	template, err := c.GetStackTemplate(name)
@@ -197,7 +201,33 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 
 	// TODO rewrite this using types
 	// Get the current values
-	currentCapacity := gjson.Get(template, desiredCapacityPath)
+	// TODO: Fetch currentCapacity from asgApi
+	// TODO: Put the actualCapacity into some other struct?
+	input := asgApi.DescribeAutoScalingGroupsInput{
+		AutoScalingGroupNames: []*string{&asgName},
+	}
+	result, err := asgApi.DescribeAutoScalingGroups(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case autoscaling.ErrCodeInvalidNextToken:
+				fmt.Println(autoscaling.ErrCodeInvalidNextToken, aerr.Error())
+			case autoscaling.ErrCodeResourceContentionFault:
+				fmt.Println(autoscaling.ErrCodeResourceContentionFault, aerr.Error())
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
+	}
+	if len(result.AutoScalingGroups) == 0 {
+		return errors.Wrapf(err, "No autoscaling group found for %s", ng.Name)
+	}
+
+	currentCapacity := result.AutoScalingGroups[0].DesiredCapacity
 	currentMaxSize := gjson.Get(template, maxSizePath)
 	currentMinSize := gjson.Get(template, minSizePath)
 
