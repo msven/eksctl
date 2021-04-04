@@ -74,6 +74,9 @@ var _ = Describe("StackCollection NodeGroup", func() {
 				ng = newNodeGroup(cc)
 				sc = NewStackCollection(p, cc)
 
+				// TODO: mock asgAPI
+				//p.MockASG().On("")
+
 				p.MockCloudFormation().
 					On("DescribeStacks", mock.MatchedBy(func(input *cfn.DescribeStacksInput) bool {
 						return input.StackName != nil && *input.StackName == "eksctl-test-cluster-nodegroup-12345"

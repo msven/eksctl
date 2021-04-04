@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/cloudtrail/cloudtrailiface"
 	"github.com/weaveworks/eksctl/pkg/cfn/waiter"
 
@@ -70,6 +71,7 @@ type ChangeSet = cloudformation.DescribeChangeSetOutput
 // StackCollection stores the CloudFormation stack information
 type StackCollection struct {
 	cloudformationAPI cloudformationiface.CloudFormationAPI
+	asgAPI            autoscalingiface.AutoScalingAPI
 	ec2API            ec2iface.EC2API
 	eksAPI            eksiface.EKSAPI
 	iamAPI            iamiface.IAMAPI
@@ -101,6 +103,7 @@ func NewStackCollection(provider api.ClusterProvider, spec *api.ClusterConfig) *
 		sharedTags:        tags,
 		cloudformationAPI: provider.CloudFormation(),
 		ec2API:            provider.EC2(),
+		asgAPI:            provider.ASG(),
 		eksAPI:            provider.EKS(),
 		iamAPI:            provider.IAM(),
 		cloudTrailAPI:     provider.CloudTrail(),

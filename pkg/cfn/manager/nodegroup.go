@@ -8,7 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/autoscaling/autoscaling"
+	asg "github.com/aws/aws-sdk-go/service/autoscaling"
 	cfn "github.com/aws/aws-sdk-go/service/cloudformation"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/blang/semver"
@@ -165,7 +165,7 @@ func (c *StackCollection) DescribeNodeGroupStacksAndResources() (map[string]Stac
 }
 
 // ScaleNodeGroup will scale an existing nodegroup
-func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup, asg *eks.Nodegroup, asgApi *autoscaling.AutoScalingAPI) error {
+func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 	clusterName := c.MakeClusterStackName()
 	c.spec.Status = &api.ClusterStatus{StackName: clusterName}
 	name := c.makeNodeGroupStackName(ng.Name)
@@ -175,6 +175,9 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup, asg *eks.Nodegroup, 
 		return errors.Wrapf(err, "error describing nodegroup stack %s", name)
 	}
 	asgName, err := c.GetAutoScalingGroupName(stack)
+	if err != nil {
+		return errors.Wrapf(err, "error getting asg name for nodegroup stack %s", name)
+	}
 
 	// Get current stack
 	template, err := c.GetStackTemplate(name)
@@ -203,17 +206,17 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup, asg *eks.Nodegroup, 
 	// Get the current values
 	// TODO: Fetch currentCapacity from asgApi
 	// TODO: Put the actualCapacity into some other struct?
-	input := asgApi.DescribeAutoScalingGroupsInput{
+	input := asg.DescribeAutoScalingGroupsInput{
 		AutoScalingGroupNames: []*string{&asgName},
 	}
-	result, err := asgApi.DescribeAutoScalingGroups(input)
+	result, err := c.asgAPI.DescribeAutoScalingGroups(&input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
-			case autoscaling.ErrCodeInvalidNextToken:
-				fmt.Println(autoscaling.ErrCodeInvalidNextToken, aerr.Error())
-			case autoscaling.ErrCodeResourceContentionFault:
-				fmt.Println(autoscaling.ErrCodeResourceContentionFault, aerr.Error())
+			case asg.ErrCodeInvalidNextToken:
+				fmt.Println(asg.ErrCodeInvalidNextToken, aerr.Error())
+			case asg.ErrCodeResourceContentionFault:
+				fmt.Println(asg.ErrCodeResourceContentionFault, aerr.Error())
 			default:
 				fmt.Println(aerr.Error())
 			}
@@ -227,7 +230,7 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup, asg *eks.Nodegroup, 
 		return errors.Wrapf(err, "No autoscaling group found for %s", ng.Name)
 	}
 
-	currentCapacity := result.AutoScalingGroups[0].DesiredCapacity
+	currentCapacity := gjson.Parse(fmt.Sprintf("{ 'DesiredCapacity': %d }", result.AutoScalingGroups[0].DesiredCapacity))
 	currentMaxSize := gjson.Get(template, maxSizePath)
 	currentMinSize := gjson.Get(template, minSizePath)
 
@@ -252,14 +255,14 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup, asg *eks.Nodegroup, 
 		return errors.Errorf("the desired nodes %d is greater than current nodes-max/maxSize %d", *ng.DesiredCapacity, currentMaxSize.Int())
 	}
 
-	if ng.DesiredCapacity == nil && ng.MaxSize != nil && int64(*ng.MaxSize) < currentCapacity.Int() {
-		logger.Warning("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentCapacity.Int(), *ng.MaxSize)
-		return errors.Errorf("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentCapacity.Int(), *ng.MaxSize)
+	if ng.DesiredCapacity == nil && ng.MaxSize != nil && int64(*ng.MaxSize) < currentMaxSize.Int() {
+		logger.Warning("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentMaxSize.Int(), *ng.MaxSize)
+		return errors.Errorf("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentMaxSize.Int(), *ng.MaxSize)
 	}
 
-	if ng.DesiredCapacity == nil && ng.MinSize != nil && int64(*ng.MinSize) > currentCapacity.Int() {
-		logger.Warning("the current capacity of %d is less than desired nodes-min/minSize %d", currentCapacity.Int(), *ng.MinSize)
-		return errors.Errorf("the current capacity of %d is less than desired nodes-min/minSize %d", currentCapacity.Int(), *ng.MinSize)
+	if ng.DesiredCapacity == nil && ng.MinSize != nil && int64(*ng.MinSize) > currentMaxSize.Int() {
+		logger.Warning("the current capacity of %d is less than desired nodes-min/minSize %d", currentMaxSize.Int(), *ng.MinSize)
+		return errors.Errorf("the current capacity of %d is less than desired nodes-min/minSize %d", currentMaxSize.Int(), *ng.MinSize)
 	}
 
 	// Set the new values
