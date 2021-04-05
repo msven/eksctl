@@ -248,9 +248,6 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 		return nil
 	}
 
-	// TODO: There is a slight race condition between when we fetch the current capacity
-	// and when we modify the min/max sizes which could change
-
 	if ng.DesiredCapacity != nil {
 		if ng.MinSize == nil && int64(*ng.DesiredCapacity) < currentMinSize.Int() {
 			logger.Warning("the desired nodes %d is less than current nodes-min/minSize %d", *ng.DesiredCapacity, currentMinSize.Int())
@@ -262,6 +259,11 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 			return errors.Errorf("the desired nodes %d is greater than current nodes-max/maxSize %d", *ng.DesiredCapacity, currentMaxSize.Int())
 		}
 	} else {
+		// TODO: If desired capacity isn't given there is a race condition between when
+		// we fetch the current capacity and when we modify the min/max sizes.
+		// If autoscaling happened between these times
+		// it would be possible for the update operation to fail if we scaled outside of the
+		// new min/max settings.
 		if ng.MaxSize != nil && int64(*ng.MaxSize) < currentCapacity.Int() {
 			logger.Warning("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentCapacity.Int(), *ng.MaxSize)
 			return errors.Errorf("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentCapacity.Int(), *ng.MaxSize)
