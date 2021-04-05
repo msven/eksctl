@@ -175,6 +175,24 @@ var _ = Describe("StackCollection NodeGroup", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("the desired nodes 0 is less than current nodes-min/minSize 1"))
 			})
+
+			It("should be a error if the minSize is larger than the current asg capacity if desired nodes not provided", func() {
+				ng.Name = "12345"
+				minSize := 3
+				ng.MinSize = &minSize
+				err := sc.ScaleNodeGroup(ng)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("the current capacity of 2 is less than desired nodes-min/minSize 3"))
+			})
+
+			It("should be a error if the maxSize is less than the current asg capacity if desired nodes not provided", func() {
+				ng.Name = "12345"
+				maxSize := 1
+				ng.MaxSize = &maxSize
+				err := sc.ScaleNodeGroup(ng)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("the current capacity of 2 is greater than desired nodes-max/maxSize 1"))
+			})
 		})
 	})
 
