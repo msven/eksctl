@@ -174,6 +174,7 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 	if err != nil {
 		return errors.Wrapf(err, "error describing nodegroup stack %s", name)
 	}
+
 	asgName, err := c.GetAutoScalingGroupName(stack)
 	if err != nil {
 		return errors.Wrapf(err, "error getting asg name for nodegroup stack %s", name)
@@ -206,10 +207,11 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 	// Get the current values
 	// TODO: Fetch currentCapacity from asgApi
 	// TODO: Put the actualCapacity into some other struct?
-	input := asg.DescribeAutoScalingGroupsInput{
+	input := &asg.DescribeAutoScalingGroupsInput{
 		AutoScalingGroupNames: []*string{&asgName},
 	}
-	result, err := c.asgAPI.DescribeAutoScalingGroups(&input)
+
+	result, err := c.asgAPI.DescribeAutoScalingGroups(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -230,11 +232,14 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 		return errors.Wrapf(err, "No autoscaling group found for %s", ng.Name)
 	}
 
-	currentCapacity := gjson.Parse(fmt.Sprintf("{ 'DesiredCapacity': %d }", result.AutoScalingGroups[0].DesiredCapacity))
+	currentCapacity := gjson.Get(fmt.Sprintf("{ \"DesiredCapacity\": %d }", *(result.AutoScalingGroups[0]).DesiredCapacity), "DesiredCapacity")
 	currentMaxSize := gjson.Get(template, maxSizePath)
 	currentMinSize := gjson.Get(template, minSizePath)
 
 	hasChanged := func(desiredVal *int, currentVal gjson.Result) bool {
+		if desiredVal != nil {
+			logger.Info("hasChanged? %d ?= %d", int64(*desiredVal), currentCapacity.Int())
+		}
 		return desiredVal != nil && int64(*desiredVal) != currentVal.Int()
 	}
 	changed := hasChanged(ng.DesiredCapacity, currentCapacity) || hasChanged(ng.MaxSize, currentMaxSize) || hasChanged(ng.MinSize, currentMinSize)

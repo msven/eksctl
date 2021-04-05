@@ -86,13 +86,21 @@ var _ = Describe("StackCollection NodeGroup", func() {
 									Key:   aws.String(api.NodeGroupNameTag),
 									Value: aws.String("12345"),
 								},
+								{
+									Key:   aws.String(api.NodeGroupTypeTag),
+									Value: aws.String("unmanaged"), // TODO
+								},
 							},
 						},
 					},
 				}, nil).
-					On("GetAutoScalingGroupName", mock.MatchedBy(func(input *cfn.Stack) bool {
+					On("DescribeStackResource", mock.MatchedBy(func(input *cfn.DescribeStackResourceInput) bool {
 						return true //input.StackName != nil && *input.StackName == "eksctl-test-cluster-nodegroup-12345"
-					})).Return("eksctl-test-cluster-nodegroup-12345", nil).
+					})).Return(&cfn.DescribeStackResourceOutput{
+					StackResourceDetail: &cfn.StackResourceDetail{
+						PhysicalResourceId: aws.String("12345"),
+					},
+				}, nil).
 					On("GetTemplate", mock.MatchedBy(func(input *cfn.GetTemplateInput) bool {
 						return input.StackName != nil && *input.StackName == "eksctl-test-cluster-nodegroup-12345"
 					})).Return(&cfn.GetTemplateOutput{
@@ -112,7 +120,7 @@ var _ = Describe("StackCollection NodeGroup", func() {
 							DesiredCapacity: aws.Int64(int64(capacity)),
 						},
 					},
-				})
+				}, nil)
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -131,7 +139,7 @@ var _ = Describe("StackCollection NodeGroup", func() {
 							DesiredCapacity: aws.Int64(int64(capacity)),
 						},
 					},
-				})
+				}, nil)
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -171,7 +179,7 @@ var _ = Describe("StackCollection NodeGroup", func() {
 							DesiredCapacity: aws.Int64(int64(capacity)),
 						},
 					},
-				})
+				}, nil)
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -188,7 +196,7 @@ var _ = Describe("StackCollection NodeGroup", func() {
 							DesiredCapacity: aws.Int64(int64(capacity)),
 						},
 					},
-				})
+				}, nil)
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("the desired nodes 5 is greater than current nodes-max/maxSize 3"))
@@ -206,7 +214,7 @@ var _ = Describe("StackCollection NodeGroup", func() {
 							DesiredCapacity: aws.Int64(int64(capacity)),
 						},
 					},
-				})
+				}, nil)
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("the desired nodes 0 is less than current nodes-min/minSize 1"))
