@@ -75,6 +75,16 @@ var _ = Describe("StackCollection NodeGroup", func() {
 				ng = newNodeGroup(cc)
 				sc = NewStackCollection(p, cc)
 
+				p.MockASG().On("DescribeAutoScalingGroups", mock.MatchedBy(func(input *asg.DescribeAutoScalingGroupsInput) bool {
+					return true // TODO: more narrowed condition?
+				})).Return(&asg.DescribeAutoScalingGroupsOutput{
+					AutoScalingGroups: []*asg.Group{
+						{
+							DesiredCapacity: aws.Int64(int64(2)),
+						},
+					},
+				}, nil)
+
 				p.MockCloudFormation().
 					On("DescribeStacks", mock.MatchedBy(func(input *cfn.DescribeStacksInput) bool {
 						return input.StackName != nil && *input.StackName == "eksctl-test-cluster-nodegroup-12345"
@@ -112,15 +122,6 @@ var _ = Describe("StackCollection NodeGroup", func() {
 				ng.Name = "12345"
 				capacity := 2
 				ng.DesiredCapacity = &capacity
-				p.MockASG().On("DescribeAutoScalingGroups", mock.MatchedBy(func(input *asg.DescribeAutoScalingGroupsInput) bool {
-					return true // TODO: more narrowed condition?
-				})).Return(&asg.DescribeAutoScalingGroupsOutput{
-					AutoScalingGroups: []*asg.Group{
-						{
-							DesiredCapacity: aws.Int64(int64(capacity)),
-						},
-					},
-				}, nil)
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -131,15 +132,6 @@ var _ = Describe("StackCollection NodeGroup", func() {
 				capacity := 2
 				ng.MinSize = &minSize
 				ng.DesiredCapacity = &capacity
-				p.MockASG().On("DescribeAutoScalingGroups", mock.MatchedBy(func(input *asg.DescribeAutoScalingGroupsInput) bool {
-					return true // TODO: more narrowed condition?
-				})).Return(&asg.DescribeAutoScalingGroupsOutput{
-					AutoScalingGroups: []*asg.Group{
-						{
-							DesiredCapacity: aws.Int64(int64(capacity)),
-						},
-					},
-				}, nil)
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -150,15 +142,6 @@ var _ = Describe("StackCollection NodeGroup", func() {
 				maxSize := 3
 				ng.DesiredCapacity = &capacity
 				ng.MaxSize = &maxSize
-				p.MockASG().On("DescribeAutoScalingGroups", mock.MatchedBy(func(input *asg.DescribeAutoScalingGroupsInput) bool {
-					return true // TODO: more narrowed condition?
-				})).Return(&asg.DescribeAutoScalingGroupsOutput{
-					AutoScalingGroups: []*asg.Group{
-						{
-							DesiredCapacity: aws.Int64(int64(capacity)),
-						},
-					},
-				})
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -171,15 +154,6 @@ var _ = Describe("StackCollection NodeGroup", func() {
 				ng.MinSize = &minSize
 				ng.DesiredCapacity = &capacity
 				ng.MaxSize = &maxSize
-				p.MockASG().On("DescribeAutoScalingGroups", mock.MatchedBy(func(input *asg.DescribeAutoScalingGroupsInput) bool {
-					return true // TODO: more narrowed condition?
-				})).Return(&asg.DescribeAutoScalingGroupsOutput{
-					AutoScalingGroups: []*asg.Group{
-						{
-							DesiredCapacity: aws.Int64(int64(capacity)),
-						},
-					},
-				}, nil)
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -188,15 +162,6 @@ var _ = Describe("StackCollection NodeGroup", func() {
 				ng.Name = "12345"
 				capacity := 5
 				ng.DesiredCapacity = &capacity
-				p.MockASG().On("DescribeAutoScalingGroups", mock.MatchedBy(func(input *asg.DescribeAutoScalingGroupsInput) bool {
-					return true // TODO: more narrowed condition?
-				})).Return(&asg.DescribeAutoScalingGroupsOutput{
-					AutoScalingGroups: []*asg.Group{
-						{
-							DesiredCapacity: aws.Int64(int64(capacity)),
-						},
-					},
-				}, nil)
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("the desired nodes 5 is greater than current nodes-max/maxSize 3"))
@@ -206,15 +171,6 @@ var _ = Describe("StackCollection NodeGroup", func() {
 				ng.Name = "12345"
 				capacity := 0
 				ng.DesiredCapacity = &capacity
-				p.MockASG().On("DescribeAutoScalingGroups", mock.MatchedBy(func(input *asg.DescribeAutoScalingGroupsInput) bool {
-					return true // TODO: more narrowed condition?
-				})).Return(&asg.DescribeAutoScalingGroupsOutput{
-					AutoScalingGroups: []*asg.Group{
-						{
-							DesiredCapacity: aws.Int64(int64(capacity)),
-						},
-					},
-				}, nil)
 				err := sc.ScaleNodeGroup(ng)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("the desired nodes 0 is less than current nodes-min/minSize 1"))

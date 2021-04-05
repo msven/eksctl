@@ -205,8 +205,6 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 
 	// TODO rewrite this using types
 	// Get the current values
-	// TODO: Fetch currentCapacity from asgApi
-	// TODO: Put the actualCapacity into some other struct?
 	input := &asg.DescribeAutoScalingGroupsInput{
 		AutoScalingGroupNames: []*string{&asgName},
 	}
@@ -238,7 +236,7 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 
 	hasChanged := func(desiredVal *int, currentVal gjson.Result) bool {
 		if desiredVal != nil {
-			logger.Info("hasChanged? %d ?= %d", int64(*desiredVal), currentCapacity.Int())
+			logger.Info("hasChanged? %d ?= %d", int64(*desiredVal), currentVal.Int())
 		}
 		return desiredVal != nil && int64(*desiredVal) != currentVal.Int()
 	}
@@ -246,28 +244,33 @@ func (c *StackCollection) ScaleNodeGroup(ng *api.NodeGroup) error {
 
 	if !changed {
 		logger.Info("no change for nodegroup %q in cluster %q: nodes-min %d, desired %d, nodes-max %d", ng.Name,
-			clusterName, currentMinSize.Int(), *ng.DesiredCapacity, currentMaxSize.Int())
+			clusterName, currentMinSize.Int(), currentCapacity.Int(), currentMaxSize.Int())
 		return nil
 	}
 
-	if ng.MinSize == nil && ng.DesiredCapacity != nil && int64(*ng.DesiredCapacity) < currentMinSize.Int() {
-		logger.Warning("the desired nodes %d is less than current nodes-min/minSize %d", *ng.DesiredCapacity, currentMinSize.Int())
-		return errors.Errorf("the desired nodes %d is less than current nodes-min/minSize %d", *ng.DesiredCapacity, currentMinSize.Int())
-	}
+	// TODO: There is a slight race condition between when we fetch the current capacity
+	// and when we modify the min/max sizes which could change
 
-	if ng.MaxSize == nil && ng.DesiredCapacity != nil && int64(*ng.DesiredCapacity) > currentMaxSize.Int() {
-		logger.Warning("the desired nodes %d is greater than current nodes-max/maxSize %d", *ng.DesiredCapacity, currentMaxSize.Int())
-		return errors.Errorf("the desired nodes %d is greater than current nodes-max/maxSize %d", *ng.DesiredCapacity, currentMaxSize.Int())
-	}
+	if ng.DesiredCapacity != nil {
+		if ng.MinSize == nil && int64(*ng.DesiredCapacity) < currentMinSize.Int() {
+			logger.Warning("the desired nodes %d is less than current nodes-min/minSize %d", *ng.DesiredCapacity, currentMinSize.Int())
+			return errors.Errorf("the desired nodes %d is less than current nodes-min/minSize %d", *ng.DesiredCapacity, currentMinSize.Int())
+		}
 
-	if ng.DesiredCapacity == nil && ng.MaxSize != nil && int64(*ng.MaxSize) < currentMaxSize.Int() {
-		logger.Warning("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentMaxSize.Int(), *ng.MaxSize)
-		return errors.Errorf("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentMaxSize.Int(), *ng.MaxSize)
-	}
+		if ng.MaxSize == nil && int64(*ng.DesiredCapacity) > currentMaxSize.Int() {
+			logger.Warning("the desired nodes %d is greater than current nodes-max/maxSize %d", *ng.DesiredCapacity, currentMaxSize.Int())
+			return errors.Errorf("the desired nodes %d is greater than current nodes-max/maxSize %d", *ng.DesiredCapacity, currentMaxSize.Int())
+		}
+	} else {
+		if ng.MaxSize != nil && int64(*ng.MaxSize) < currentCapacity.Int() {
+			logger.Warning("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentCapacity.Int(), *ng.MaxSize)
+			return errors.Errorf("the current capacity of %d is greater than desired nodes-max/maxSize %d", currentCapacity.Int(), *ng.MaxSize)
+		}
 
-	if ng.DesiredCapacity == nil && ng.MinSize != nil && int64(*ng.MinSize) > currentMaxSize.Int() {
-		logger.Warning("the current capacity of %d is less than desired nodes-min/minSize %d", currentMaxSize.Int(), *ng.MinSize)
-		return errors.Errorf("the current capacity of %d is less than desired nodes-min/minSize %d", currentMaxSize.Int(), *ng.MinSize)
+		if ng.MinSize != nil && int64(*ng.MinSize) > currentCapacity.Int() {
+			logger.Warning("the current capacity of %d is less than desired nodes-min/minSize %d", currentCapacity.Int(), *ng.MinSize)
+			return errors.Errorf("the current capacity of %d is less than desired nodes-min/minSize %d", currentCapacity.Int(), *ng.MinSize)
+		}
 	}
 
 	// Set the new values
